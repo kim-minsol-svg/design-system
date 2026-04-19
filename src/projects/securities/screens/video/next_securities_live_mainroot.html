@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next Securities — Live</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif; background: #111; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+.pw { display:flex; justify-content:center; padding:2rem 0; }
+.pf { width:390px; height:844px; background:#000; border-radius:50px; border:10px solid #1C1C1E; box-shadow:0 0 0 1px #3A3A3C, 0 32px 64px rgba(0,0,0,.7); overflow:hidden; position:relative; }
+.di { position:absolute; top:12px; left:50%; transform:translateX(-50%); width:120px; height:34px; background:#000; border-radius:20px; z-index:500; }
+
+.vp { width:100%; height:100%; overflow:hidden; position:relative; }
+.track { width:100%; height:100%; display:flex; flex-direction:column; transition:transform 0.55s cubic-bezier(0.4,0,0.2,1); will-change:transform; }
+.slide { width:100%; height:844px; position:relative; flex-shrink:0; overflow:hidden; background:#000; }
+.slide-gif { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; }
+
+.grad-top { position:absolute; top:0; left:0; right:0; height:260px; background:linear-gradient(to bottom,rgba(0,0,0,0.75) 0%,transparent 100%); z-index:10; }
+.grad-bot { position:absolute; bottom:80px; left:0; right:0; height:320px; background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.4) 55%,transparent 100%); z-index:10; }
+
+/* ── TOP OVERLAY: 전체 중앙 정렬 ── */
+.top-overlay {
+  position:absolute; top:0; left:0; right:0;
+  z-index:200; padding:14px 22px 0;
+  background:linear-gradient(to bottom,rgba(0,0,0,0.6) 0%,transparent 100%);
+  display:flex; flex-direction:column; align-items:center;
+}
+.sb { display:flex; justify-content:space-between; align-items:center; width:100%; padding-top:4px; }
+.st { font-size:15px; font-weight:600; color:#fff; }
+.si { display:flex; gap:6px; align-items:center; }
+
+/* 탭 로우 — 중앙 정렬 */
+.tab-row { display:flex; gap:20px; align-items:center; justify-content:center; padding:10px 0 8px; width:100%; }
+.tab { font-size:14px; font-weight:500; color:rgba(255,255,255,0.38); cursor:pointer; }
+.tab.active { font-size:16px; font-weight:700; color:#fff; position:relative; }
+.tab.active::after { content:''; position:absolute; bottom:-3px; left:50%; transform:translateX(-50%); width:16px; height:2px; background:#fff; border-radius:2px; }
+
+/* 라이브 로우 — 중앙 정렬 */
+.live-row { display:flex; align-items:center; justify-content:center; gap:8px; padding-bottom:10px; width:100%; }
+.live-pill { display:flex; align-items:center; gap:4px; background:rgba(239,68,68,0.2); border:0.5px solid rgba(239,68,68,0.45); border-radius:20px; padding:3px 9px; }
+.live-dot { width:6px; height:6px; background:#EF4444; border-radius:50%; animation:blink 1.3s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.28} }
+.live-txt { font-size:11px; font-weight:700; color:#F87171; letter-spacing:0.4px; }
+.viewer-cnt { font-size:11px; color:rgba(255,255,255,0.45); }
+.viewer-cnt span { color:rgba(255,255,255,0.8); font-weight:600; }
+
+/* SPEECH BUBBLE */
+.speech-wrap { position:absolute; z-index:50; left:16px; right:80px; bottom:318px; }
+.speech-bubble { display:inline-block; background:rgba(0,0,0,0.58); border:1px solid rgba(255,255,255,0.2); border-radius:16px 16px 16px 4px; padding:11px 15px; backdrop-filter:blur(12px); max-width:240px; }
+.bubble-txt { font-size:15px; font-weight:700; color:#fff; line-height:1.45; letter-spacing:-0.3px; }
+
+/* CONTENT LEFT */
+.content-left { position:absolute; bottom:98px; left:16px; right:80px; z-index:50; }
+.prog-label { font-size:10px; color:rgba(255,255,255,0.42); font-weight:600; letter-spacing:0.5px; margin-bottom:5px; }
+.content-title { font-size:17px; font-weight:800; color:#fff; line-height:1.38; margin-bottom:9px; letter-spacing:-0.4px; text-shadow:0 2px 8px rgba(0,0,0,0.7); }
+.badge-row { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+.ib { display:inline-flex; align-items:center; gap:3px; padding:4px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+.ib-ai { background:rgba(37,99,235,0.25); border:0.5px solid rgba(37,99,235,0.5); color:#93C5FD; }
+.ib-up { background:rgba(34,197,94,0.16); border:0.5px solid rgba(34,197,94,0.4); color:#86EFAC; }
+.ib-sec { background:rgba(255,255,255,0.08); border:0.5px solid rgba(255,255,255,0.18); color:rgba(255,255,255,0.72); }
+.ib-warn { background:rgba(251,191,36,0.16); border:0.5px solid rgba(251,191,36,0.4); color:#FDE68A; }
+.ib-atx { background:rgba(37,99,235,0.28); border:0.5px solid rgba(37,99,235,0.55); color:#93C5FD; }
+.host-row { display:flex; align-items:center; gap:7px; }
+.host-av { width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,#1D4ED8,#7C3AED); display:flex; align-items:center; justify-content:center; }
+.host-av svg { width:13px; height:13px; fill:#fff; }
+.host-name { font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); }
+.host-sub { font-size:10px; color:rgba(255,255,255,0.38); }
+
+/* RIGHT ACTIONS */
+.actions-right { position:absolute; right:12px; bottom:102px; z-index:100; display:flex; flex-direction:column; align-items:center; gap:18px; }
+.act-btn { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+.act-icon { width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,0.1); border:0.5px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; }
+.act-icon svg { width:22px; height:22px; stroke:#fff; fill:none; stroke-width:1.8; }
+.act-icon.liked { background:rgba(239,68,68,0.22); border-color:rgba(239,68,68,0.4); }
+.act-icon.liked svg { stroke:#EF4444; }
+.act-lbl { font-size:11px; font-weight:600; color:rgba(255,255,255,0.7); }
+.wl-btn { width:46px; height:46px; border-radius:50%; background:rgba(37,99,235,0.22); border:1.5px solid #2563EB; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.wl-btn svg { width:20px; height:20px; stroke:#60A5FA; fill:none; stroke-width:2; }
+.buy-cta { width:46px; height:46px; border-radius:14px; background:rgba(37,99,235,0.88); border:0.5px solid rgba(96,165,250,0.48); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; cursor:pointer; }
+
+/* SLIDE LIVE BADGE */
+.slide-live-badge { position:absolute; top:148px; right:14px; z-index:100; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.slb { background:#EF4444; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; color:#fff; letter-spacing:0.5px; display:flex; align-items:center; gap:4px; }
+.slb-dot { width:5px; height:5px; background:#fff; border-radius:50%; animation:blink 1.3s infinite; }
+.vw-cnt { background:rgba(0,0,0,0.55); border:0.5px solid rgba(255,255,255,0.18); border-radius:20px; padding:3px 8px; font-size:11px; font-weight:600; color:#fff; display:flex; align-items:center; gap:4px; }
+.vw-cnt svg { width:11px; height:11px; stroke:#fff; fill:none; stroke-width:2; }
+
+/* DOTS */
+.slide-dots { position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:400; display:flex; flex-direction:column; gap:5px; }
+.dot { width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); transition:all 0.3s; }
+.dot.active { height:20px; border-radius:3px; background:#fff; }
+
+/* SWIPE HINT */
+.swipe-hint { position:absolute; bottom:92px; left:50%; transform:translateX(-50%); z-index:300; display:flex; flex-direction:column; align-items:center; gap:3px; animation:bounceY 2s infinite; pointer-events:none; transition:opacity 0.4s; }
+@keyframes bounceY { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-6px)} }
+.swipe-hint svg { width:20px; height:20px; stroke:rgba(255,255,255,0.5); fill:none; stroke-width:2; }
+.swipe-hint span { font-size:9px; color:rgba(255,255,255,0.45); font-weight:600; letter-spacing:0.3px; white-space:nowrap; }
+
+/* BOTTOM NAV */
+.bnav { position:absolute; bottom:0; left:0; right:0; height:80px; background:rgba(0,0,0,0.9); border-top:0.5px solid rgba(255,255,255,0.08); display:flex; align-items:flex-start; padding-top:9px; z-index:400; backdrop-filter:blur(20px); }
+.ni { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; padding-top:2px; }
+.ni-icon svg { width:22px; height:22px; stroke-width:1.8; fill:none; }
+.nl { font-size:10px; font-weight:500; }
+.ni.act .nl { color:#fff; }
+.ni.act .ni-icon svg { stroke:#fff; }
+.ni:not(.act):not(.ni-sw) .nl { color:rgba(255,255,255,0.28); }
+.ni:not(.act):not(.ni-sw) .ni-icon svg { stroke:rgba(255,255,255,0.28); }
+.ni-sw { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; padding-top:2px; }
+.shorts-pill { width:42px; height:26px; border-radius:8px; background:linear-gradient(135deg,#2563EB,#7C3AED); display:flex; align-items:center; justify-content:center; }
+.shorts-pill svg { width:13px; height:13px; fill:#fff; stroke:none; }
+.shorts-lbl { font-size:10px; font-weight:500; color:rgba(255,255,255,0.28); }
+.home-ind { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); width:110px; height:4px; background:rgba(255,255,255,0.3); border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="pw"><div class="pf">
+  <div class="di"></div>
+
+  <div class="vp">
+    <div class="track" id="track">
+
+      <!-- SLIDE 1: BEAR -->
+      <div class="slide" id="slide0">
+        <img class="slide-gif" id="gif0" src="next_bear.gif" alt="bear" />
+        <div class="grad-top"></div>
+        <div class="grad-bot"></div>
+        <div class="slide-live-badge">
+          <div class="slb"><div class="slb-dot"></div>LIVE</div>
+          <div class="vw-cnt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>9,204</div>
+        </div>
+        <div class="speech-wrap">
+          <div class="speech-bubble">
+            <div class="bubble-txt">코스피 상승 랠리 이어가며<br>목요일 종가 기준<br>2,600 돌파 예상</div>
+          </div>
+        </div>
+        <div class="content-left">
+          <div class="prog-label">국내주식 · ATX 특집</div>
+          <div class="content-title">코스피 상승 랠리 — 외인 순매수<br>이번 주 핵심 종목 분석</div>
+          <div class="badge-row">
+            <span class="ib ib-ai"><svg width="9" height="9" viewBox="0 0 24 24" fill="#93C5FD"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>AI 생성</span>
+            <span class="ib ib-up">▲ 매수 신호</span>
+            <span class="ib ib-atx">ATX</span>
+            <span class="ib ib-sec">반도체</span>
+          </div>
+          <div class="host-row">
+            <div class="host-av"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+            <div><div class="host-name">NEXT AI 리서치</div><div class="host-sub">넥스트증권 공식 · AI 자동생성</div></div>
+          </div>
+        </div>
+        <div class="actions-right">
+          <div class="act-btn"><div class="act-icon liked"><svg viewBox="0 0 24 24" fill="#EF4444" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div><span class="act-lbl" style="color:#EF4444;">9.2K</span></div>
+          <div class="act-btn"><div class="act-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="act-lbl">1,204</span></div>
+          <div class="act-btn"><div class="wl-btn"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></div><span class="act-lbl" style="color:#60A5FA;">관심</span></div>
+          <div class="act-btn"><div class="buy-cta"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span style="font-size:9px;font-weight:700;color:#fff;">바로매수</span></div><span class="act-lbl" style="color:#93C5FD;">즉시주문</span></div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2: RABBIT -->
+      <div class="slide" id="slide1">
+        <img class="slide-gif" id="gif1" src="next_rabbit.gif" alt="rabbit" />
+        <div class="grad-top"></div>
+        <div class="grad-bot"></div>
+        <div class="slide-live-badge">
+          <div class="slb"><div class="slb-dot"></div>LIVE</div>
+          <div class="vw-cnt"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>5,841</div>
+        </div>
+        <div class="speech-wrap">
+          <div class="speech-bubble">
+            <div class="bubble-txt">ETF 분산투자 전략으로<br>변동성 장세 대응하기<br>지금이 기회입니다</div>
+          </div>
+        </div>
+        <div class="content-left">
+          <div class="prog-label">ETF · 채권 · 분산투자</div>
+          <div class="content-title">금리 안정기 채권 전략 —<br>TIGER ETF 포트폴리오 가이드</div>
+          <div class="badge-row">
+            <span class="ib ib-ai"><svg width="9" height="9" viewBox="0 0 24 24" fill="#93C5FD"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>AI 생성</span>
+            <span class="ib ib-sec">채권</span>
+            <span class="ib ib-sec">ETF</span>
+            <span class="ib ib-warn">금리 주목</span>
+          </div>
+          <div class="host-row">
+            <div class="host-av"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+            <div><div class="host-name">NEXT AI 리서치</div><div class="host-sub">넥스트증권 공식 · AI 자동생성</div></div>
+          </div>
+        </div>
+        <div class="actions-right">
+          <div class="act-btn"><div class="act-icon"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div><span class="act-lbl">5.8K</span></div>
+          <div class="act-btn"><div class="act-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="act-lbl">834</span></div>
+          <div class="act-btn"><div class="wl-btn"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></div><span class="act-lbl" style="color:#60A5FA;">관심</span></div>
+          <div class="act-btn"><div class="buy-cta"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span style="font-size:9px;font-weight:700;color:#fff;">바로매수</span></div><span class="act-lbl" style="color:#93C5FD;">즉시주문</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TOP OVERLAY -->
+    <div class="top-overlay">
+      <div class="sb">
+        <span class="st">9:41</span>
+        <div class="si">
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="white"><rect x="0" y="3" width="3" height="9" rx="1"/><rect x="4.5" y="2" width="3" height="10" rx="1"/><rect x="9" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="white"/></svg>
+        </div>
+      </div>
+      <div class="tab-row">
+        <span class="tab">추천</span>
+        <span class="tab">숏츠</span>
+        <span class="tab">팔로잉</span>
+        <span class="tab active">라이브</span>
+      </div>
+      <div class="live-row">
+        <div class="live-pill"><div class="live-dot"></div><span class="live-txt">LIVE</span></div>
+        <span class="viewer-cnt">현재 <span>18개</span> 방송 · <span>42,816</span>명 시청</span>
+      </div>
+    </div>
+
+    <div class="slide-dots" id="dots">
+      <div class="dot active"></div>
+      <div class="dot"></div>
+    </div>
+
+    <div class="swipe-hint" id="swipeHint">
+      <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+      <span>위로 스크롤</span>
+    </div>
+
+  </div>
+
+  <div class="bnav">
+    <div class="ni"><div class="ni-icon"><svg viewBox="0 0 24 24" style="stroke:rgba(255,255,255,0.28)"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="nl" style="color:rgba(255,255,255,0.28);">홈</span></div>
+    <div class="ni"><div class="ni-icon"><svg viewBox="0 0 24 24" style="stroke:rgba(255,255,255,0.28)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="nl" style="color:rgba(255,255,255,0.28);">증권</span></div>
+    <div class="ni-sw"><div class="shorts-pill"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><span class="shorts-lbl">숏츠</span></div>
+    <div class="ni"><div class="ni-icon"><svg viewBox="0 0 24 24" style="stroke:rgba(255,255,255,0.28)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="nl" style="color:rgba(255,255,255,0.28);">커뮤니티</span></div>
+    <div class="ni act"><div class="ni-icon"><svg viewBox="0 0 24 24" style="stroke:#fff"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><span class="nl" style="color:#fff;">라이브</span></div>
+    <div class="home-ind"></div>
+  </div>
+
+</div></div>
+<script>
+const TOTAL = 2;
+let current = 0, startY = 0, isDragging = false;
+const track = document.getElementById('track');
+const dots = document.querySelectorAll('.dot');
+const hint = document.getElementById('swipeHint');
+
+function restartGif(idx) {
+  const img = document.getElementById('gif' + idx);
+  if (!img) return;
+  const src = img.src;
+  img.src = '';
+  setTimeout(() => { img.src = src; }, 30);
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= TOTAL) return;
+  current = idx;
+  track.style.transform = 'translateY(-' + (current * 844) + 'px)';
+  dots.forEach((d, i) => d.classList.toggle('active', i === current));
+  hint.style.opacity = current > 0 ? '0' : '1';
+  setTimeout(() => restartGif(current), 560);
+}
+
+window.addEventListener('load', () => restartGif(0));
+track.addEventListener('touchstart', e => { startY = e.touches[0].clientY; isDragging = true; }, {passive:true});
+track.addEventListener('touchend', e => {
+  if (!isDragging) return; isDragging = false;
+  const diff = startY - e.changedTouches[0].clientY;
+  if (diff > 40) goTo(current + 1);
+  else if (diff < -40) goTo(current - 1);
+}, {passive:true});
+track.addEventListener('mousedown', e => { startY = e.clientY; isDragging = true; e.preventDefault(); });
+document.addEventListener('mouseup', e => {
+  if (!isDragging) return; isDragging = false;
+  const diff = startY - e.clientY;
+  if (diff > 30) goTo(current + 1);
+  else if (diff < -30) goTo(current - 1);
+});
+let wheelLock = false;
+track.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (wheelLock) return;
+  wheelLock = true;
+  if (e.deltaY > 0) goTo(current + 1);
+  else goTo(current - 1);
+  setTimeout(() => wheelLock = false, 700);
+}, {passive:false});
+</script>
+</body>
+</html>
