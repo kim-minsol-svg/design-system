@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TMAP AUTO — Context-Aware Adaptive IVI</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & ROOT ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-page: #080a0f;
+  --bg-device: #111318;
+  --accent-green: #4CEFB0;
+  --accent-blue: #1B6EF3;
+  --accent-amber: #EF9F27;
+  --accent-red: #E24B4A;
+  --text-primary: #F0EDE8;
+  --text-muted: rgba(240,237,232,0.45);
+  --text-hint: rgba(240,237,232,0.22);
+  --border: rgba(255,255,255,0.07);
+  --sans: 'Noto Sans KR', sans-serif;
+  --mono: 'Rajdhani', monospace;
+}
+
+body {
+  background: var(--bg-page);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 60px;
+  color: var(--text-primary);
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  width: 100%; max-width: 960px;
+  margin-bottom: 36px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 12px;
+}
+.page-title {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--accent-green); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.page-name {
+  font-size: 22px; font-weight: 500;
+  color: var(--text-primary); letter-spacing: -0.3px;
+}
+.page-badge {
+  font-family: var(--mono); font-size: 10px;
+  background: rgba(76,239,176,0.1); color: var(--accent-green);
+  border: 0.5px solid rgba(76,239,176,0.2);
+  padding: 5px 12px; border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+/* ── STATE TABS ── */
+.state-tabs {
+  width: 100%; max-width: 960px;
+  display: flex; gap: 8px; margin-bottom: 28px;
+}
+.state-tab {
+  flex: 1; padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid var(--border);
+  border-radius: 10px; cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+.state-tab:hover { background: rgba(255,255,255,0.06); }
+.state-tab.active-city { background: rgba(27,110,243,0.12); border-color: rgba(27,110,243,0.35); }
+.state-tab.active-highway { background: rgba(239,159,39,0.1); border-color: rgba(239,159,39,0.3); }
+.state-tab.active-junction { background: rgba(226,75,74,0.1); border-color: rgba(226,75,74,0.3); }
+.tab-speed {
+  font-family: var(--mono); font-size: 18px; font-weight: 700;
+  line-height: 1; margin-bottom: 3px;
+}
+.tab-city .tab-speed { color: #85B7EB; }
+.tab-highway .tab-speed { color: var(--accent-amber); }
+.tab-junction .tab-speed { color: #F09595; }
+.tab-label { font-size: 11px; color: var(--text-muted); }
+.tab-badge {
+  font-family: var(--mono); font-size: 9px;
+  padding: 2px 7px; border-radius: 10px;
+  display: inline-block; margin-top: 5px;
+  letter-spacing: 0.4px;
+}
+.tab-city .tab-badge { background: rgba(27,110,243,0.15); color: #85B7EB; }
+.tab-highway .tab-badge { background: rgba(239,159,39,0.12); color: var(--accent-amber); }
+.tab-junction .tab-badge { background: rgba(226,75,74,0.12); color: #F09595; }
+
+/* ── MAIN LAYOUT ── */
+.main-layout {
+  width: 100%; max-width: 960px;
+  display: grid; grid-template-columns: 1fr 320px;
+  gap: 20px; align-items: start;
+}
+
+/* ── DEVICE FRAME ── */
+.device-frame {
+  background: #0a0c10;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 0 6px #0d0f14, 0 24px 60px rgba(0,0,0,0.6);
+  transition: box-shadow 0.4s ease;
+}
+.device-frame.state-city { box-shadow: 0 0 0 6px #0d0f14, 0 24px 60px rgba(27,110,243,0.15); }
+.device-frame.state-highway { box-shadow: 0 0 0 6px #0d0f14, 0 24px 60px rgba(239,159,39,0.12); }
+.device-frame.state-junction { box-shadow: 0 0 0 6px #0d0f14, 0 24px 60px rgba(226,75,74,0.15); }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px 8px;
+  background: rgba(8,10,15,0.97);
+  border-bottom: 0.5px solid var(--border);
+  position: relative; z-index: 10;
+}
+.s-time { font-family: var(--mono); font-size: 16px; font-weight: 600; color: #fff; letter-spacing: 0.8px; }
+.s-right { display: flex; align-items: center; gap: 10px; }
+.s-battery { display: flex; align-items: center; gap: 4px; }
+.bat-body { width: 20px; height: 10px; border: 1.5px solid rgba(255,255,255,0.35); border-radius: 2px; padding: 1.5px; position: relative; }
+.bat-body::after { content:''; position:absolute; right:-4px; top:50%; transform:translateY(-50%); width:2px; height:5px; background:rgba(255,255,255,0.3); border-radius:0 1px 1px 0; }
+.bat-fill { height: 100%; border-radius: 1px; background: var(--accent-green); }
+.bat-pct { font-family: var(--mono); font-size: 10px; color: var(--accent-green); font-weight: 600; }
+.s-signal { display: flex; align-items: flex-end; gap: 1.5px; height: 12px; }
+.s-signal span { width: 2.5px; border-radius: 1px; }
+.s-signal span:nth-child(1) { height: 4px; background: rgba(255,255,255,0.85); }
+.s-signal span:nth-child(2) { height: 7px; background: rgba(255,255,255,0.85); }
+.s-signal span:nth-child(3) { height: 10px; background: rgba(255,255,255,0.85); }
+.s-signal span:nth-child(4) { height: 12px; background: rgba(255,255,255,0.25); }
+.s-net { font-size: 9px; color: rgba(255,255,255,0.4); }
+.s-temp { font-family: var(--mono); font-size: 10px; color: var(--text-hint); }
+
+/* ── MAP AREA ── */
+.map-area { position: relative; overflow: hidden; }
+
+/* ── ROUTE CARD ── */
+.route-card {
+  position: absolute; top: 10px; left: 10px; right: 10px;
+  background: rgba(10,14,22,0.93);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 10px 13px;
+  z-index: 5; transition: all 0.4s ease;
+}
+.rc-top { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.rc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); flex-shrink: 0; box-shadow: 0 0 6px rgba(76,239,176,0.5); }
+.rc-dest { font-size: 12px; font-weight: 500; color: #fff; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-eta { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent-green); letter-spacing: 0.2px; flex-shrink: 0; }
+.rc-stats { display: flex; gap: 10px; align-items: center; }
+.rc-stat { display: flex; flex-direction: column; gap: 1px; }
+.rc-stat-l { font-size: 8px; color: rgba(255,255,255,0.32); letter-spacing: 0.4px; text-transform: uppercase; }
+.rc-stat-v { font-family: var(--mono); font-size: 13px; font-weight: 600; color: #fff; }
+.rc-div { width: 0.5px; height: 20px; background: rgba(255,255,255,0.1); }
+
+/* highway mode: 초소형 */
+.route-card.minimal {
+  top: 10px; right: 10px; left: auto;
+  width: 110px; padding: 8px 10px;
+}
+.route-card.minimal .rc-top { margin-bottom: 4px; }
+.route-card.minimal .rc-dest { font-size: 10px; }
+.route-card.minimal .rc-eta { font-size: 11px; }
+.route-card.minimal .rc-stats { display: none; }
+
+/* junction mode: hidden */
+.route-card.hidden { display: none; }
+
+/* ── JUNCTION OVERLAY ── */
+.junction-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(8,10,15,0.55);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding-top: 18px;
+  z-index: 6; transition: opacity 0.3s;
+}
+.junction-direction {
+  background: var(--accent-blue);
+  border-radius: 14px; padding: 14px 20px;
+  text-align: center; min-width: 160px;
+}
+.jd-arrow { font-size: 32px; color: #fff; line-height: 1; margin-bottom: 4px; }
+.jd-label { font-size: 11px; color: rgba(255,255,255,0.8); }
+.jd-dist { font-family: var(--mono); font-size: 18px; font-weight: 700; color: #fff; margin-top: 2px; }
+.junction-warning {
+  margin-top: 10px;
+  background: rgba(226,75,74,0.15);
+  border: 0.5px solid rgba(226,75,74,0.35);
+  border-radius: 8px; padding: 7px 14px;
+  display: flex; align-items: center; gap: 6px;
+}
+.jw-dot { width: 6px; height: 6px; border-radius: 50%; background: #E24B4A; animation: pulse 1s ease-in-out infinite; }
+.jw-text { font-size: 10px; color: #F09595; letter-spacing: 0.3px; }
+
+/* ── SPEED HUD ── */
+.speed-hud {
+  position: absolute; z-index: 5;
+  background: rgba(10,14,22,0.9);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 8px 12px;
+  text-align: center; min-width: 52px;
+  transition: all 0.4s ease;
+}
+.speed-hud.pos-br { right: 10px; bottom: 10px; }
+.speed-hud.pos-center { left: 50%; transform: translateX(-50%); bottom: 14px; min-width: 80px; }
+.spd-n { font-family: var(--mono); font-size: 24px; font-weight: 700; color: #fff; line-height: 1; }
+.spd-n.highway { font-size: 32px; color: var(--accent-amber); }
+.spd-u { font-size: 8px; color: rgba(255,255,255,0.3); letter-spacing: 0.5px; margin-top: 2px; }
+
+/* ── CAMERA ALERT ── */
+.cam-alert {
+  position: absolute; z-index: 5;
+  left: 10px;
+  background: rgba(186,117,23,0.12);
+  border: 0.5px solid rgba(186,117,23,0.35);
+  border-radius: 9px; padding: 5px 9px;
+  display: flex; align-items: center; gap: 5px;
+  transition: all 0.3s;
+}
+.cam-icon { width: 13px; height: 13px; border-radius: 50%; background: #BA7517; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #fff; font-weight: 700; flex-shrink: 0; }
+.cam-txt { font-size: 9px; color: var(--accent-amber); }
+
+/* ── AI PANEL ── */
+.ai-panel {
+  position: absolute; left: 10px; right: 10px;
+  background: rgba(10,14,22,0.95);
+  border-radius: 12px; padding: 11px 13px;
+  z-index: 5; transition: all 0.4s ease;
+}
+.ai-panel.ai-city { border: 0.5px solid rgba(76,239,176,0.22); }
+.ai-panel.ai-highway { border: 0.5px solid rgba(27,110,243,0.22); }
+.ai-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ai-dot-pulse { width: 6px; height: 6px; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+.ai-dot-pulse.green { background: var(--accent-green); }
+.ai-dot-pulse.blue { background: #85B7EB; }
+.ai-lbl { font-size: 9px; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; }
+.ai-lbl.green { color: var(--accent-green); }
+.ai-lbl.blue { color: #85B7EB; }
+.ai-msg { font-size: 11px; color: rgba(255,255,255,0.78); line-height: 1.5; margin-bottom: 8px; }
+.ai-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chip {
+  font-size: 10px; padding: 4px 10px; border-radius: 20px; cursor: pointer;
+  transition: all 0.2s;
+}
+.chip.green-on { background: rgba(76,239,176,0.12); color: var(--accent-green); border: 0.5px solid rgba(76,239,176,0.3); }
+.chip.off { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); border: 0.5px solid rgba(255,255,255,0.12); }
+.chip:hover { opacity: 0.8; }
+
+/* voice only panel */
+.ai-panel.voice-only {
+  left: 10px; right: auto; width: auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  border: 0.5px solid rgba(27,110,243,0.2);
+}
+.voice-icon { width: 14px; height: 14px; flex-shrink: 0; }
+.voice-txt { font-size: 9px; color: #85B7EB; letter-spacing: 0.3px; white-space: nowrap; }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+  flex-shrink: 0;
+  background: rgba(8,10,15,0.98);
+  border-top: 0.5px solid var(--border);
+  padding: 9px 14px 11px;
+  transition: all 0.4s ease;
+}
+.media-row { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.media-art {
+  width: 32px; height: 32px; border-radius: 6px;
+  background: #1a1040; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.media-info { flex: 1; min-width: 0; }
+.media-title { font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media-sub { font-size: 9px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+.media-prog { height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.media-prog-fill { height: 100%; background: var(--accent-green); border-radius: 2px; transition: width 0.3s; }
+.media-ctrls { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+.ctrl-svg { opacity: 0.4; }
+.ctrl-play {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+}
+.play-tri { width: 0; height: 0; border-left: 8px solid rgba(255,255,255,0.85); border-top: 5px solid transparent; border-bottom: 5px solid transparent; margin-left: 2px; }
+
+/* highway: media hidden */
+.bottom-bar.no-media .media-row { display: none; }
+
+.qmenu { display: flex; justify-content: space-around; padding-top: 8px; border-top: 0.5px solid rgba(255,255,255,0.05); }
+.qm { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+.qm-ic { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); transition: background 0.2s; }
+.qm-ic.active { background: rgba(27,110,243,0.2); }
+.qm-lbl { font-size: 8px; color: rgba(255,255,255,0.28); }
+.qm-lbl.active { color: var(--accent-blue); }
+
+/* ── INFO PANEL (우측) ── */
+.info-panel { display: flex; flex-direction: column; gap: 14px; }
+.info-card {
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid var(--border);
+  border-radius: 12px; padding: 16px;
+}
+.info-card-title {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text-hint); letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 12px;
+}
+.state-indicator {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.si-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.si-dot.city { background: #85B7EB; }
+.si-dot.highway { background: var(--accent-amber); }
+.si-dot.junction { background: #F09595; }
+.si-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+.rule-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.rule-item { display: flex; gap: 8px; font-size: 11px; }
+.rule-key { color: var(--text-hint); flex-shrink: 0; width: 68px; line-height: 1.5; }
+.rule-val { color: var(--text-muted); line-height: 1.5; }
+.rule-val strong { color: var(--text-primary); font-weight: 500; }
+
+.nhtsa-bar { margin-top: 12px; }
+.nhtsa-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-hint); margin-bottom: 5px; }
+.nhtsa-track { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; position: relative; }
+.nhtsa-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease, background 0.5s ease; }
+.nhtsa-limit { position: absolute; right: 0; top: -2px; width: 2px; height: 8px; background: rgba(226,75,74,0.6); border-radius: 1px; }
+.nhtsa-caption { font-size: 9px; color: var(--text-hint); margin-top: 5px; }
+
+.layer-stack { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.layer-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border-radius: 7px;
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid var(--border);
+  font-size: 11px; transition: all 0.3s;
+}
+.layer-item.on { background: rgba(76,239,176,0.07); border-color: rgba(76,239,176,0.18); }
+.layer-item.off { opacity: 0.35; }
+.layer-name { color: var(--text-muted); }
+.layer-item.on .layer-name { color: var(--text-primary); }
+.layer-status {
+  font-family: var(--mono); font-size: 9px;
+  padding: 2px 7px; border-radius: 10px;
+  letter-spacing: 0.3px;
+}
+.layer-status.on { background: rgba(76,239,176,0.12); color: var(--accent-green); }
+.layer-status.off { background: rgba(255,255,255,0.05); color: var(--text-hint); }
+
+/* ── ANIMATIONS ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.95); }
+}
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.screen-anim { animation: fadein 0.3s ease; }
+
+/* ── EXPORT BAR ── */
+.export-bar {
+  width: 100%; max-width: 960px;
+  margin-top: 24px;
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.export-btn {
+  font-family: var(--mono); font-size: 11px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid var(--border);
+  color: var(--text-muted); padding: 9px 18px;
+  border-radius: 8px; cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.export-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.export-btn.primary {
+  background: rgba(76,239,176,0.1);
+  border-color: rgba(76,239,176,0.25);
+  color: var(--accent-green);
+}
+.export-btn.primary:hover { background: rgba(76,239,176,0.18); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 720px) {
+  .main-layout { grid-template-columns: 1fr; }
+  .state-tabs { flex-direction: column; }
+  .info-panel { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div>
+    <div class="page-title">Context-Aware Adaptive IVI</div>
+    <div class="page-name">주행 맥락별 UI 상태 설계안</div>
+  </div>
+  <span class="page-badge">가설 기반 설계 제안 · 검증 전</span>
+</div>
+
+<!-- STATE TABS -->
+<div class="state-tabs">
+  <div class="state-tab tab-city active-city" onclick="setState('city')">
+    <div class="tab-speed">38</div>
+    <div class="tab-label">km/h · 도심 주행</div>
+    <div class="tab-badge">풀 UI</div>
+  </div>
+  <div class="state-tab tab-highway" onclick="setState('highway')">
+    <div class="tab-speed">112</div>
+    <div class="tab-label">km/h · 고속도로</div>
+    <div class="tab-badge">최소 UI</div>
+  </div>
+  <div class="state-tab tab-junction" onclick="setState('junction')">
+    <div class="tab-speed">교차로</div>
+    <div class="tab-label">진입 감지</div>
+    <div class="tab-badge">방향 전용</div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- DEVICE -->
+  <div class="device-frame state-city" id="device">
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div class="s-time" id="s-time">14:32</div>
+      <div class="s-right">
+        <div class="s-battery">
+          <div class="bat-body"><div class="bat-fill" id="bat-fill" style="width:72%"></div></div>
+          <span class="bat-pct" id="bat-pct">72%</span>
+        </div>
+        <div class="s-signal"><span></span><span></span><span></span><span></span></div>
+        <span class="s-net">5G</span>
+        <span class="s-temp">23°C</span>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-area" id="map-area" style="height:300px;">
+
+      <!-- SVG MAP — CITY -->
+      <svg id="map-city" width="100%" height="100%" viewBox="0 0 420 300" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;">
+        <rect width="420" height="300" fill="#0e1218"/>
+        <!-- 녹지 -->
+        <rect x="0" y="260" width="130" height="40" fill="#0e1a10"/>
+        <rect x="150" y="270" width="60" height="30" fill="#0e1a10"/>
+        <!-- 청계천 -->
+        <path d="M0,248 Q80,244 180,248 Q280,252 420,248" stroke="#1a4a6e" stroke-width="7" fill="none"/>
+        <path d="M0,248 Q80,244 180,248 Q280,252 420,248" stroke="#1e5580" stroke-width="3" fill="none" opacity="0.6"/>
+        <!-- 세로 간선 -->
+        <rect x="196" y="0" width="22" height="300" fill="#1c2235"/>
+        <line x1="207" y1="0" x2="207" y2="300" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" stroke-dasharray="10,7"/>
+        <!-- 가로 간선 — 종로 -->
+        <rect x="0" y="82" width="420" height="20" fill="#1c2235"/>
+        <!-- 가로 간선 — 을지로 -->
+        <rect x="0" y="166" width="420" height="18" fill="#1c2235"/>
+        <!-- 가로 — 퇴계로 -->
+        <rect x="0" y="232" width="420" height="14" fill="#191e2a"/>
+        <!-- 보조 세로 -->
+        <rect x="94" y="0" width="13" height="300" fill="#191e2a" opacity="0.9"/>
+        <rect x="148" y="0" width="11" height="300" fill="#191e2a" opacity="0.85"/>
+        <rect x="274" y="0" width="13" height="300" fill="#191e2a" opacity="0.9"/>
+        <rect x="332" y="0" width="11" height="300" fill="#191e2a" opacity="0.85"/>
+        <!-- 보조 가로 -->
+        <rect x="0" y="38" width="420" height="10" fill="#191e2a" opacity="0.8"/>
+        <rect x="0" y="120" width="420" height="10" fill="#191e2a" opacity="0.8"/>
+        <rect x="0" y="204" width="420" height="9" fill="#191e2a" opacity="0.75"/>
+        <!-- 건물들 -->
+        <rect x="6" y="6" width="82" height="30" rx="2" fill="#141c28"/>
+        <rect x="6" y="50" width="36" height="28" rx="2" fill="#141c28"/>
+        <rect x="46" y="52" width="42" height="24" rx="2" fill="#141c28"/>
+        <rect x="6" y="132" width="82" height="28" rx="2" fill="#141c28"/>
+        <rect x="6" y="178" width="38" height="48" rx="2" fill="#141c28"/>
+        <rect x="50" y="180" width="38" height="20" rx="2" fill="#141c28"/>
+        <rect x="110" y="6" width="32" height="28" rx="2" fill="#141c28"/>
+        <rect x="110" y="132" width="32" height="28" rx="2" fill="#141c28"/>
+        <rect x="218" y="6" width="50" height="34" rx="2" fill="#141c28"/>
+        <rect x="218" y="132" width="50" height="28" rx="2" fill="#141c28"/>
+        <rect x="218" y="178" width="50" height="48" rx="2" fill="#141c28"/>
+        <rect x="290" y="6" width="36" height="28" rx="2" fill="#141c28"/>
+        <rect x="290" y="50" width="36" height="26" rx="2" fill="#141c28"/>
+        <rect x="290" y="132" width="36" height="28" rx="2" fill="#141c28"/>
+        <rect x="348" y="6" width="66" height="70" rx="2" fill="#141c28"/>
+        <rect x="348" y="132" width="66" height="68" rx="2" fill="#141c28"/>
+        <!-- 도로 라벨 -->
+        <text x="207" y="78" text-anchor="middle" font-size="7" fill="#4a5570" font-family="'Noto Sans KR',sans-serif">세종대로</text>
+        <text x="50" y="79" text-anchor="middle" font-size="6.5" fill="#4a5570" font-family="'Noto Sans KR',sans-serif">종로</text>
+        <text x="340" y="79" text-anchor="middle" font-size="6.5" fill="#4a5570" font-family="'Noto Sans KR',sans-serif">종로</text>
+        <text x="50" y="163" text-anchor="middle" font-size="6.5" fill="#4a5570" font-family="'Noto Sans KR',sans-serif">을지로</text>
+        <text x="207" y="244" text-anchor="middle" font-size="6.5" fill="#2a5a7a" font-family="'Noto Sans KR',sans-serif">청계천</text>
+        <!-- POI -->
+        <circle cx="78" cy="148" r="6" fill="#1B6EF3" opacity="0.9"/>
+        <text x="78" y="152" text-anchor="middle" font-size="7.5" fill="#fff" font-family="'Rajdhani',sans-serif" font-weight="700">P</text>
+        <circle cx="54" cy="214" r="5" fill="#27ae60" opacity="0.9"/>
+        <text x="54" y="218" text-anchor="middle" font-size="8" fill="#fff">⚡</text>
+        <circle cx="310" cy="148" r="5" fill="rgba(255,255,255,0.8)"/>
+        <text x="310" y="152" text-anchor="middle" font-size="7.5" fill="#555">☕</text>
+        <!-- 장소 라벨 -->
+        <rect x="118" y="104" width="36" height="12" rx="2.5" fill="rgba(255,255,255,0.88)"/>
+        <text x="136" y="113" text-anchor="middle" font-size="6" fill="#222" font-family="'Noto Sans KR',sans-serif" font-weight="500">한국은행</text>
+        <rect x="240" y="212" width="28" height="11" rx="2.5" fill="rgba(255,255,255,0.88)"/>
+        <text x="254" y="221" text-anchor="middle" font-size="6" fill="#222" font-family="'Noto Sans KR',sans-serif">명동</text>
+        <!-- 경로 -->
+        <path d="M30,92 Q60,92 94,92 L94,175 Q94,180 102,180 L196,180" stroke="rgba(27,110,243,0.22)" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M30,92 Q60,92 94,92 L94,175 Q94,180 102,180 L196,180" stroke="#1B6EF3" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- 방향 화살표 -->
+        <polygon points="94,138 90,128 98,128" fill="#1B6EF3"/>
+        <!-- 현재 위치 -->
+        <circle cx="30" cy="92" r="14" fill="rgba(27,110,243,0.12)"/>
+        <circle cx="30" cy="92" r="8" fill="rgba(27,110,243,0.22)"/>
+        <circle cx="30" cy="92" r="5.5" fill="#1B6EF3"/>
+        <circle cx="30" cy="92" r="2.5" fill="#fff"/>
+        <!-- 교통 지체 -->
+        <rect x="218" y="168" width="50" height="18" fill="rgba(226,75,74,0.1)"/>
+        <text x="243" y="180" text-anchor="middle" font-size="6.5" fill="#a05050" font-family="'Noto Sans KR',sans-serif">지체</text>
+      </svg>
+
+      <!-- SVG MAP — HIGHWAY (hidden by default) -->
+      <svg id="map-highway" width="100%" height="100%" viewBox="0 0 420 300" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;display:none;">
+        <rect width="420" height="300" fill="#0a0e10"/>
+        <!-- 녹지 -->
+        <rect x="0" y="0" width="420" height="90" fill="#0a110c"/>
+        <rect x="0" y="210" width="420" height="90" fill="#0a110c"/>
+        <!-- 고속도로 -->
+        <rect x="0" y="90" width="420" height="120" fill="#151d25"/>
+        <line x1="0" y1="107" x2="420" y2="107" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+        <line x1="0" y1="150" x2="420" y2="150" stroke="rgba(255,255,255,0.08)" stroke-width="0.5" stroke-dasharray="20,12"/>
+        <line x1="0" y1="193" x2="420" y2="193" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+        <!-- 나무 실루엣 -->
+        <rect x="20" y="60" width="6" height="28" rx="2" fill="#0e1a12"/>
+        <rect x="60" y="50" width="8" height="38" rx="2" fill="#0e1a12"/>
+        <rect x="110" y="55" width="6" height="33" rx="2" fill="#0e1a12"/>
+        <rect x="160" y="62" width="7" height="26" rx="2" fill="#0e1a12"/>
+        <rect x="220" y="58" width="6" height="30" rx="2" fill="#0e1a12"/>
+        <rect x="280" y="52" width="8" height="36" rx="2" fill="#0e1a12"/>
+        <rect x="350" y="60" width="6" height="28" rx="2" fill="#0e1a12"/>
+        <rect x="30" y="215" width="6" height="26" rx="2" fill="#0e1a12"/>
+        <rect x="90" y="218" width="7" height="22" rx="2" fill="#0e1a12"/>
+        <rect x="160" y="212" width="6" height="28" rx="2" fill="#0e1a12"/>
+        <rect x="240" y="216" width="8" height="24" rx="2" fill="#0e1a12"/>
+        <rect x="320" y="214" width="6" height="26" rx="2" fill="#0e1a12"/>
+        <!-- 경로 -->
+        <path d="M0,150 Q80,146 180,150 Q280,154 420,150" stroke="rgba(27,110,243,0.18)" stroke-width="14" fill="none"/>
+        <path d="M0,150 Q80,146 180,150 Q280,154 420,150" stroke="#1B6EF3" stroke-width="4" fill="none"/>
+        <!-- 위치 마커 -->
+        <circle cx="60" cy="150" r="12" fill="rgba(27,110,243,0.15)"/>
+        <circle cx="60" cy="150" r="7" fill="#1B6EF3"/>
+        <circle cx="60" cy="150" r="3" fill="#fff"/>
+        <!-- 방향 화살표 -->
+        <polygon points="180,142 175,132 185,132" fill="#1B6EF3" opacity="0.7"/>
+        <!-- 도로 라벨 -->
+        <text x="300" y="148" text-anchor="middle" font-size="7" fill="#3a4858" font-family="'Rajdhani',sans-serif" font-weight="500">SEOUL-BUSAN EXPRESSWAY</text>
+        <!-- 출구 표지판 -->
+        <rect x="340" y="112" width="70" height="22" rx="3" fill="#1a4a1a"/>
+        <text x="375" y="127" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)" font-family="'Noto Sans KR',sans-serif">성남 IC · 14km</text>
+      </svg>
+
+      <!-- SVG MAP — JUNCTION -->
+      <svg id="map-junction" width="100%" height="100%" viewBox="0 0 420 300" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;display:none;">
+        <rect width="420" height="300" fill="#0d1016"/>
+        <!-- 교차로 배경 -->
+        <rect x="0" y="116" width="420" height="68" fill="#161d2a"/>
+        <rect x="178" y="0" width="64" height="300" fill="#161d2a"/>
+        <!-- 건물들 -->
+        <rect x="0" y="0" width="172" height="110" rx="0" fill="#0f1420"/>
+        <rect x="248" y="0" width="172" height="110" rx="0" fill="#0f1420"/>
+        <rect x="0" y="190" width="172" height="110" rx="0" fill="#0f1420"/>
+        <rect x="248" y="190" width="172" height="110" rx="0" fill="#0f1420"/>
+        <!-- 건물 디테일 -->
+        <rect x="10" y="10" width="70" height="90" rx="2" fill="#141c2a"/>
+        <rect x="90" y="20" width="74" height="80" rx="2" fill="#141c2a"/>
+        <rect x="258" y="10" width="80" height="90" rx="2" fill="#141c2a"/>
+        <rect x="348" y="18" width="62" height="82" rx="2" fill="#141c2a"/>
+        <rect x="10" y="200" width="80" height="90" rx="2" fill="#141c2a"/>
+        <rect x="100" y="208" width="64" height="82" rx="2" fill="#141c2a"/>
+        <rect x="258" y="200" width="74" height="90" rx="2" fill="#141c28"/>
+        <rect x="342" y="210" width="68" height="80" rx="2" fill="#141c28"/>
+        <!-- 차선 -->
+        <line x1="210" y1="0" x2="210" y2="116" stroke="rgba(255,255,255,0.06)" stroke-width="0.5" stroke-dasharray="10,8"/>
+        <line x1="210" y1="184" x2="210" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="0.5" stroke-dasharray="10,8"/>
+        <line x1="0" y1="150" x2="178" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="0.5" stroke-dasharray="10,8"/>
+        <line x1="242" y1="150" x2="420" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="0.5" stroke-dasharray="10,8"/>
+        <!-- 신호등 암시 -->
+        <rect x="175" y="105" width="10" height="22" rx="3" fill="#1a2030"/>
+        <circle cx="180" cy="110" r="3" fill="#2a1a1a"/>
+        <circle cx="180" cy="116" r="3" fill="#1a2a1a"/>
+        <circle cx="180" cy="122" r="3" fill="#E24B4A" opacity="0.9"/>
+        <!-- 경로 (직진) -->
+        <path d="M210,280 L210,184" stroke="rgba(27,110,243,0.2)" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <path d="M210,280 L210,184" stroke="#1B6EF3" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <!-- 위치 마커 -->
+        <circle cx="210" cy="240" r="12" fill="rgba(27,110,243,0.15)"/>
+        <circle cx="210" cy="240" r="7" fill="#1B6EF3"/>
+        <circle cx="210" cy="240" r="3" fill="#fff"/>
+        <!-- 경고 반경 -->
+        <circle cx="210" cy="150" r="30" fill="rgba(226,75,74,0.07)" stroke="rgba(226,75,74,0.2)" stroke-width="1" stroke-dasharray="4,3"/>
+      </svg>
+
+      <!-- JUNCTION OVERLAY -->
+      <div class="junction-overlay screen-anim" id="junction-overlay" style="display:none;">
+        <div class="junction-direction">
+          <div class="jd-arrow">↑</div>
+          <div class="jd-label">직진</div>
+          <div class="jd-dist">80m</div>
+        </div>
+        <div class="junction-warning">
+          <div class="jw-dot"></div>
+          <span class="jw-text">AI 알림 차단 중 · 교차로 통과 후 재개</span>
+        </div>
+      </div>
+
+      <!-- ROUTE CARD -->
+      <div class="route-card screen-anim" id="route-card">
+        <div class="rc-top">
+          <div class="rc-dot"></div>
+          <span class="rc-dest" id="rc-dest">강남구 삼성동 코엑스</span>
+          <span class="rc-eta" id="rc-eta">18분</span>
+        </div>
+        <div class="rc-stats" id="rc-stats">
+          <div class="rc-stat"><span class="rc-stat-l">거리</span><span class="rc-stat-v" id="rc-dist">7.4km</span></div>
+          <div class="rc-div"></div>
+          <div class="rc-stat"><span class="rc-stat-l">교통</span><span class="rc-stat-v" style="color:var(--accent-green)">원활</span></div>
+          <div class="rc-div"></div>
+          <div class="rc-stat"><span class="rc-stat-l">도착</span><span class="rc-stat-v">14:50</span></div>
+        </div>
+      </div>
+
+      <!-- SPEED HUD -->
+      <div class="speed-hud pos-br" id="speed-hud">
+        <div class="spd-n" id="spd-n">38</div>
+        <div class="spd-u">km/h</div>
+      </div>
+
+      <!-- CAM ALERT -->
+      <div class="cam-alert" id="cam-alert" style="bottom:10px;">
+        <div class="cam-icon">!</div>
+        <span class="cam-txt" id="cam-txt">단속 1.2km</span>
+      </div>
+
+      <!-- AI PANEL -->
+      <div class="ai-panel ai-city screen-anim" id="ai-panel" style="bottom:10px;">
+        <div class="ai-hdr">
+          <div class="ai-dot-pulse green" id="ai-dot"></div>
+          <span class="ai-lbl green" id="ai-lbl">AI 에이전트</span>
+        </div>
+        <div class="ai-msg" id="ai-msg">목적지 근처 주차장이 혼잡합니다. 스타필드 코엑스몰 P2 주차장에 여유가 있어요.</div>
+        <div class="ai-chips" id="ai-chips">
+          <div class="chip green-on">P2 안내받기</div>
+          <div class="chip off">다른 주차장</div>
+          <div class="chip off">닫기</div>
+        </div>
+      </div>
+
+    </div><!-- /map-area -->
+
+    <!-- BOTTOM BAR -->
+    <div class="bottom-bar" id="bottom-bar">
+      <div class="media-row" id="media-row">
+        <div class="media-art" style="background:linear-gradient(135deg,#1a0a2e,#3d1a6e);">
+          <svg width="22" height="14" viewBox="0 0 36 20" fill="none">
+            <text x="0" y="15" font-family="'Noto Sans KR',sans-serif" font-size="13" font-weight="700" fill="#fff" letter-spacing="-0.5">FLO</text>
+          </svg>
+        </div>
+        <div class="media-info">
+          <div class="media-title" id="media-title">잔나비 — 주저하는 연인들을 위해</div>
+          <div class="media-sub">FLO · 드라이브 플레이리스트</div>
+          <div class="media-prog"><div class="media-prog-fill" id="media-prog" style="width:38%"></div></div>
+        </div>
+        <div class="media-ctrls">
+          <svg class="ctrl-svg" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 20L9 12l10-8v16zM5 19V5" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/></svg>
+          <div class="ctrl-play"><div class="play-tri"></div></div>
+          <svg class="ctrl-svg" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 4l10 8-10 8V4zM19 5v14" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div class="qmenu">
+        <div class="qm">
+          <div class="qm-ic active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1v-9" stroke="#1B6EF3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="qm-lbl active">홈</span>
+        </div>
+        <div class="qm">
+          <div class="qm-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/><path d="M16.5 16.5L21 21" stroke="rgba(255,255,255,0.38)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <span class="qm-lbl">검색</span>
+        </div>
+        <div class="qm">
+          <div class="qm-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/></svg>
+          </div>
+          <span class="qm-lbl">앱스토어</span>
+        </div>
+        <div class="qm">
+          <div class="qm-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="rgba(255,255,255,0.38)" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="qm-lbl">EV충전</span>
+        </div>
+        <div class="qm">
+          <div class="qm-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="rgba(255,255,255,0.38)" stroke-width="1.8"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.38)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <span class="qm-lbl">MY</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /device-frame -->
+
+  <!-- INFO PANEL -->
+  <div class="info-panel">
+
+    <div class="info-card">
+      <div class="info-card-title">현재 상태</div>
+      <div class="state-indicator">
+        <div class="si-dot city" id="si-dot"></div>
+        <span class="si-name" id="si-name">도심 주행 · 30–80 km/h</span>
+      </div>
+      <div class="rule-list">
+        <div class="rule-item">
+          <span class="rule-key">화면 레이어</span>
+          <span class="rule-val" id="ri-layer"><strong>풀 UI</strong> — 모든 정보 표시</span>
+        </div>
+        <div class="rule-item">
+          <span class="rule-key">AI 개입</span>
+          <span class="rule-val" id="ri-ai">음성 우선 + <strong>칩 버튼 1개</strong></span>
+        </div>
+        <div class="rule-item">
+          <span class="rule-key">설계 근거</span>
+          <span class="rule-val" id="ri-reason">교차로 판단 빈번, distraction 최소화</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">Glance Time 예측</div>
+      <div class="nhtsa-bar">
+        <div class="nhtsa-label">
+          <span id="gt-label">예상 시선 이탈</span>
+          <span id="gt-val" style="color:var(--accent-green);">1.6초</span>
+        </div>
+        <div class="nhtsa-track">
+          <div class="nhtsa-fill" id="gt-fill" style="width:80%; background:var(--accent-green);"></div>
+          <div class="nhtsa-limit"></div>
+        </div>
+        <div class="nhtsa-caption" id="gt-caption">NHTSA 기준 2초 이내 ✓ — 가설 기반, 미검증</div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">UI 레이어 활성 상태</div>
+      <div class="layer-stack" id="layer-stack">
+        <div class="layer-item on"><span class="layer-name">경로 카드</span><span class="layer-status on">ON</span></div>
+        <div class="layer-item on"><span class="layer-name">AI 알림 패널</span><span class="layer-status on">ON</span></div>
+        <div class="layer-item on"><span class="layer-name">미디어 플레이어</span><span class="layer-status on">ON</span></div>
+        <div class="layer-item on"><span class="layer-name">카메라 경고</span><span class="layer-status on">ON</span></div>
+        <div class="layer-item on"><span class="layer-name">속도계 HUD</span><span class="layer-status on">ON</span></div>
+        <div class="layer-item on"><span class="layer-name">퀵 메뉴</span><span class="layer-status on">ON</span></div>
+      </div>
+    </div>
+
+  </div><!-- /info-panel -->
+</div><!-- /main-layout -->
+
+<!-- EXPORT BAR -->
+<div class="export-bar">
+  <button class="export-btn primary" onclick="exportHTML()">HTML 파일로 저장</button>
+  <button class="export-btn" onclick="exportJSON()">JSON 토큰 내보내기</button>
+  <button class="export-btn" onclick="copyStates()">3개 상태 스펙 복사</button>
+</div>
+
+<script>
+// ── STATE CONFIG ──
+const STATES = {
+  city: {
+    tabClass: 'active-city',
+    deviceClass: 'state-city',
+    time: '14:32', batW: '72%', batPct: '72%',
+    mapHeight: '300px',
+    siDotClass: 'city', siName: '도심 주행 · 30–80 km/h',
+    riLayer: '<strong>풀 UI</strong> — 모든 정보 표시',
+    riAI: '음성 우선 + <strong>칩 버튼 1개</strong>',
+    riReason: '교차로 판단 빈번, distraction 최소화',
+    gtLabel: '예상 시선 이탈', gtVal: '1.6초', gtColor: 'var(--accent-green)',
+    gtFillW: '80%', gtFillBg: 'var(--accent-green)',
+    gtCaption: 'NHTSA 기준 2초 이내 ✓ — 가설 기반, 미검증',
+    layers: [true, true, true, true, true, true],
+    routeClass: '',
+    routeShow: true,
+    rcDest: '강남구 삼성동 코엑스',
+    rcETA: '18분', rcDist: '7.4km',
+    spdVal: '38', spdClass: '',
+    spdPos: 'pos-br',
+    camShow: true, camTxt: '단속 1.2km', camBottom: '10px',
+    aiShow: true, aiClass: 'ai-city', aiBottom: '10px',
+    aiDotClass: 'green', aiLblClass: 'green',
+    aiLbl: 'AI 에이전트',
+    aiMsg: '목적지 근처 주차장이 혼잡합니다. 스타필드 코엑스몰 P2 주차장에 여유가 있어요.',
+    aiChips: '<div class="chip green-on">P2 안내받기</div><div class="chip off">다른 주차장</div><div class="chip off">닫기</div>',
+    aiVoiceOnly: false,
+    junctionShow: false,
+    mediaHide: false,
+    mediaTitle: '잔나비 — 주저하는 연인들을 위해',
+    mediaProg: '38%'
+  },
+  highway: {
+    tabClass: 'active-highway',
+    deviceClass: 'state-highway',
+    time: '14:47', batW: '64%', batPct: '64%',
+    mapHeight: '340px',
+    siDotClass: 'highway', siName: '고속도로 · 80+ km/h',
+    riLayer: '<strong>최소 UI</strong> — 속도·ETA만',
+    riAI: '음성 전용, <strong>화면 알림 차단</strong>',
+    riReason: 'NHTSA 2초 규정 준수, 고속 집중 필요',
+    gtLabel: '예상 시선 이탈', gtVal: '1.1초', gtColor: 'var(--accent-green)',
+    gtFillW: '55%', gtFillBg: 'var(--accent-green)',
+    gtCaption: 'NHTSA 기준 2초 이내 ✓ — 가설 기반, 미검증',
+    layers: [true, false, false, true, true, true],
+    routeClass: 'minimal',
+    routeShow: true,
+    rcDest: '코엑스',
+    rcETA: '31분', rcDist: '',
+    spdVal: '112', spdClass: 'highway',
+    spdPos: 'pos-center',
+    camShow: true, camTxt: '단속 8.4km', camBottom: '94px',
+    aiShow: true, aiClass: 'voice-only', aiBottom: '52px',
+    aiDotClass: 'blue', aiLblClass: 'blue',
+    aiLbl: '음성 전용',
+    aiMsg: '',
+    aiChips: '',
+    aiVoiceOnly: true,
+    junctionShow: false,
+    mediaHide: true,
+    mediaTitle: '',
+    mediaProg: '52%'
+  },
+  junction: {
+    tabClass: 'active-junction',
+    deviceClass: 'state-junction',
+    time: '14:39', batW: '68%', batPct: '68%',
+    mapHeight: '310px',
+    siDotClass: 'junction', siName: '교차로 진입 감지',
+    riLayer: '<strong>방향 지시만</strong> 오버레이',
+    riAI: '<strong>차단</strong> — 30초 전부터 알림 없음',
+    riReason: '충돌 위험 구간, 완전 집중 필요',
+    gtLabel: '예상 시선 이탈', gtVal: '0.4초', gtColor: 'var(--accent-green)',
+    gtFillW: '20%', gtFillBg: 'var(--accent-green)',
+    gtCaption: '방향 표시 단독 — 최소 glance 가설',
+    layers: [false, false, true, false, false, true],
+    routeClass: 'hidden',
+    routeShow: false,
+    rcDest: '', rcETA: '', rcDist: '',
+    spdVal: '24', spdClass: '',
+    spdPos: 'pos-br',
+    camShow: false, camTxt: '', camBottom: '10px',
+    aiShow: false, aiClass: '', aiBottom: '10px',
+    aiDotClass: '', aiLblClass: '',
+    aiLbl: '', aiMsg: '', aiChips: '',
+    aiVoiceOnly: false,
+    junctionShow: true,
+    mediaHide: false,
+    mediaTitle: '잔나비 — 주저하는 연인들을 위해',
+    mediaProg: '44%'
+  }
+};
+
+const LAYER_NAMES = ['경로 카드','AI 알림 패널','미디어 플레이어','카메라 경고','속도계 HUD','퀵 메뉴'];
+let currentState = 'city';
+
+function setState(s) {
+  currentState = s;
+  const c = STATES[s];
+
+  // tabs
+  document.querySelectorAll('.state-tab').forEach(t => {
+    t.classList.remove('active-city','active-highway','active-junction');
+  });
+  document.querySelectorAll('.state-tab')[['city','highway','junction'].indexOf(s)].classList.add(c.tabClass);
+
+  // device class
+  const dev = document.getElementById('device');
+  dev.className = 'device-frame ' + c.deviceClass;
+
+  // status bar
+  document.getElementById('s-time').textContent = c.time;
+  document.getElementById('bat-fill').style.width = c.batW;
+  document.getElementById('bat-pct').textContent = c.batPct;
+
+  // map
+  document.getElementById('map-area').style.height = c.mapHeight;
+  ['city','highway','junction'].forEach(n => {
+    document.getElementById('map-'+n).style.display = n===s ? 'block' : 'none';
+  });
+
+  // junction overlay
+  const jo = document.getElementById('junction-overlay');
+  jo.style.display = c.junctionShow ? 'flex' : 'none';
+
+  // route card
+  const rc = document.getElementById('route-card');
+  rc.className = 'route-card screen-anim ' + c.routeClass;
+  if(c.routeShow) {
+    document.getElementById('rc-dest').textContent = c.rcDest;
+    document.getElementById('rc-eta').textContent = c.rcETA;
+  }
+
+  // speed hud
+  const sh = document.getElementById('speed-hud');
+  sh.className = 'speed-hud ' + c.spdPos;
+  const sn = document.getElementById('spd-n');
+  sn.textContent = c.spdVal;
+  sn.className = 'spd-n ' + c.spdClass;
+
+  // camera
+  const cam = document.getElementById('cam-alert');
+  cam.style.display = c.camShow ? 'flex' : 'none';
+  cam.style.bottom = c.camBottom;
+  document.getElementById('cam-txt').textContent = c.camTxt;
+
+  // ai panel
+  const ai = document.getElementById('ai-panel');
+  if(c.aiShow) {
+    ai.style.display = c.aiVoiceOnly ? 'flex' : 'block';
+    ai.className = 'ai-panel screen-anim ' + c.aiClass;
+    ai.style.bottom = c.aiBottom;
+    if(c.aiVoiceOnly) {
+      ai.innerHTML = `
+        <svg class="voice-icon" viewBox="0 0 24 24" fill="none" width="14" height="14">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="#85B7EB" stroke-width="2"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" stroke="#85B7EB" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="voice-txt">음성 전용 모드 · 화면 알림 차단 중</span>`;
+    } else {
+      ai.innerHTML = `
+        <div class="ai-hdr">
+          <div class="ai-dot-pulse ${c.aiDotClass}"></div>
+          <span class="ai-lbl ${c.aiLblClass}">${c.aiLbl}</span>
+        </div>
+        <div class="ai-msg">${c.aiMsg}</div>
+        <div class="ai-chips">${c.aiChips}</div>`;
+    }
+  } else {
+    ai.style.display = 'none';
+  }
+
+  // media
+  const bb = document.getElementById('bottom-bar');
+  bb.className = 'bottom-bar' + (c.mediaHide ? ' no-media' : '');
+  if(!c.mediaHide) {
+    document.getElementById('media-title').textContent = c.mediaTitle;
+    document.getElementById('media-prog').style.width = c.mediaProg;
+    document.querySelector('.media-sub').textContent = 'FLO · 드라이브 플레이리스트';
+  }
+
+  // info panel
+  const sd = document.getElementById('si-dot');
+  sd.className = 'si-dot ' + c.siDotClass;
+  document.getElementById('si-name').textContent = c.siName;
+  document.getElementById('ri-layer').innerHTML = c.riLayer;
+  document.getElementById('ri-ai').innerHTML = c.riAI;
+  document.getElementById('ri-reason').textContent = c.riReason;
+
+  document.getElementById('gt-label').textContent = c.gtLabel;
+  const gtv = document.getElementById('gt-val');
+  gtv.textContent = c.gtVal; gtv.style.color = c.gtColor;
+  const gtf = document.getElementById('gt-fill');
+  gtf.style.width = c.gtFillW; gtf.style.background = c.gtFillBg;
+  document.getElementById('gt-caption').textContent = c.gtCaption;
+
+  const ls = document.getElementById('layer-stack');
+  ls.innerHTML = c.layers.map((on,i) => `
+    <div class="layer-item ${on?'on':'off'}">
+      <span class="layer-name">${LAYER_NAMES[i]}</span>
+      <span class="layer-status ${on?'on':'off'}">${on?'ON':'OFF'}</span>
+    </div>`).join('');
+}
+
+// ── EXPORT FUNCTIONS ──
+function exportHTML() {
+  const blob = new Blob([document.documentElement.outerHTML], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tmap_adaptive_ivi_' + currentState + '.html';
+  a.click();
+}
+
+function exportJSON() {
+  const s = STATES[currentState];
+  const token = {
+    meta: {
+      state: currentState,
+      note: "가설 기반 설계 제안 — 실제 검증 미완료",
+      generated: new Date().toISOString()
+    },
+    context: {
+      speed_range: currentState==='city'?'30-80':currentState==='highway'?'80+':'0-30',
+      trigger: currentState==='junction'?'intersection_detected':currentState==='highway'?'speed_threshold_80':'default'
+    },
+    ui_layers: {
+      route_card: s.layers[0],
+      ai_panel: s.layers[1],
+      media_player: s.layers[2],
+      camera_alert: s.layers[3],
+      speed_hud: s.layers[4],
+      quick_menu: s.layers[5]
+    },
+    ai_config: {
+      mode: currentState==='highway'?'voice_only':currentState==='junction'?'blocked':'card_and_voice',
+      notification_enabled: s.layers[1],
+      max_text_lines: currentState==='city'?2:0
+    },
+    design_tokens: {
+      accent_primary: '#4CEFB0',
+      accent_nav: '#1B6EF3',
+      bg_base: '#0a0c10',
+      border_default: 'rgba(255,255,255,0.07)',
+      font_display: 'Rajdhani',
+      font_body: 'Noto Sans KR'
+    },
+    nhtsa_hypothesis: {
+      estimated_glance_time: s.gtVal,
+      compliant: true,
+      status: "가설 — 드라이빙 시뮬레이터 UT 검증 필요"
+    }
+  };
+  const blob = new Blob([JSON.stringify(token, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tmap_token_' + currentState + '.json';
+  a.click();
+}
+
+function copyStates() {
+  const spec = Object.entries(STATES).map(([k,v]) => `
+[${k.toUpperCase()}] ${v.siName}
+  화면 레이어: ${v.riLayer.replace(/<[^>]+>/g,'')}
+  AI 개입: ${v.riAI.replace(/<[^>]+>/g,'')}
+  설계 근거: ${v.riReason}
+  활성 레이어: ${LAYER_NAMES.filter((_,i)=>v.layers[i]).join(', ')}
+  예상 Glance: ${v.gtVal} (가설·미검증)`).join('\n');
+  navigator.clipboard.writeText(spec.trim()).then(()=>{
+    const btn = document.querySelector('.export-btn:last-child');
+    const orig = btn.textContent;
+    btn.textContent = '복사됨 ✓';
+    setTimeout(()=>btn.textContent=orig, 2000);
+  });
+}
+
+// init
+setState('city');
+</script>
+</body>
+</html>
